@@ -1,0 +1,120 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-cream: #faf8f2;
+  --color-chrome: #f0ece4;
+  --color-ink: #0a0a0a;
+  --color-page-ink: #0a0a0a;
+  --color-accent: #ffe500;
+  --color-accent-subtle: #ffe50040;
+  --color-accent-hot: #ff6b6b;
+  --color-success: #7bed9f;
+  --color-surface: #ffffff;
+  --font-display: "Archivo Black", sans-serif;
+  --font-body: "Space Grotesk", sans-serif;
+  --shadow-neo: 4px 4px 0 #0a0a0a;
+  --shadow-neo-lg: 6px 6px 0 #0a0a0a;
+}
+
+/* Dark Neo: charcoal page, dimmed paper cards, muted gold accent */
+.dark {
+  --color-cream: #24242c;
+  --color-chrome: #d4cfc4;
+  --color-surface: #e6e2d6;
+  --color-ink: #0a0a0a;
+  --color-page-ink: #e6e2d6;
+  --color-accent: #d4af37;
+  --color-accent-subtle: #d4af3726;
+  --color-accent-hot: #d97070;
+  --color-success: #5eae7a;
+  --shadow-neo: 4px 4px 0 #0a0a0a;
+  --shadow-neo-lg: 6px 6px 0 #0a0a0a;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-cream text-page-ink font-[family-name:var(--font-body)] antialiased;
+  }
+
+  a,
+  button:not(:disabled),
+  [role="checkbox"],
+  label {
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+}
+
+@layer utilities {
+  .neo-border {
+    border: 3px solid var(--color-ink);
+  }
+  .neo-shadow {
+    box-shadow: var(--shadow-neo);
+  }
+  .neo-shadow-lg {
+    box-shadow: var(--shadow-neo-lg);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .neo-shadow-hover:hover {
+      box-shadow: var(--shadow-neo-lg);
+      transform: translate(-1px, -1px);
+    }
+  }
+  .neo-shadow-hover:active {
+    box-shadow: var(--shadow-neo);
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes row-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-row-enter {
+  animation: row-enter 0.2s ease-out;
+}
+
+@keyframes stamp {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.02);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-stamp {
+  animation: stamp 0.15s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-stamp,
+  .animate-row-enter {
+    animation: none;
+  }
+}

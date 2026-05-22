@@ -1,0 +1,140 @@
+{
+  "_comment": "Import into Admin → Nests → your nest → Import Egg. See docs/PTERODACTYL.md",
+  "meta": {
+    "version": "PTDL_v2",
+    "update_url": null
+  },
+  "exported_on": "2026-05-21T00:00:00+00:00",
+  "name": "Tasky",
+  "author": "tasky@local",
+  "description": "Tasky — goals and daily tasks (Next.js + SQLite). See docs/PTERODACTYL.md in the repo.",
+  "features": null,
+  "docker_images": {
+    "Node.js 22": "ghcr.io/ptero-eggs/yolks:nodejs_22"
+  },
+  "file_denylist": [],
+  "startup": "npx prisma db push --skip-generate 2>/dev/null; node /home/container/scripts/next-start.mjs",
+  "config": {
+    "files": "{}",
+    "startup": "{\n    \"done\": [\n        \"[tasky] Starting on\",\n        \"Ready in\"\n    ]\n}",
+    "logs": "{}",
+    "stop": "^C"
+  },
+  "scripts": {
+    "installation": {
+      "container": "ghcr.io/ptero-eggs/yolks:nodejs_22",
+      "entrypoint": "bash",
+      "script": "#!/bin/bash\n# Tasky install — runs in Pterodactyl's *install* container (path is usually /mnt/server).\nset -e\n\n# Install/Reinstall uses /mnt/server; SFTP and the running server use /home/container (same files).\nif [ -f /mnt/server/package.json ]; then\n  SERVER_ROOT=/mnt/server\nelif [ -f /home/container/package.json ]; then\n  SERVER_ROOT=/home/container\nelif [ -d /mnt/server ]; then\n  SERVER_ROOT=/mnt/server\nelse\n  SERVER_ROOT=/home/container\nfi\n\ncd \"${SERVER_ROOT}\"\necho \"[tasky] Installing in $(pwd) ...\"\n\nif [ \"${USER_UPLOAD}\" = \"1\" ]; then\n  if [ ! -f package.json ]; then\n    echo \"[tasky] No package.json here yet.\"\n    echo \"[tasky] Upload your project via SFTP to /home/container (package.json at the root).\"\n    echo \"[tasky] Then click Reinstall again.\"\n    echo \"[tasky] Contents of $(pwd):\"\n    ls -la\n    exit 0\n  fi\n  echo \"[tasky] USER_UPLOAD=1 — using your uploaded files (no git).\"\nelse\n  if [ -z \"${GIT_ADDRESS}\" ]; then\n    echo \"[tasky] ERROR: Set GIT_ADDRESS, or set USER_UPLOAD=1 and upload files via SFTP.\"\n    exit 1\n  fi\n  ADDR=\"${GIT_ADDRESS}\"\n  if [[ \"${ADDR}\" != *.git ]]; then ADDR=\"${ADDR}.git\"; fi\n\n  CLONE_URL=\"${ADDR}\"\n  if [ -n \"${GIT_TOKEN}\" ]; then\n    HOST_PATH=\"$(echo \"${ADDR}\" | sed -E 's#^https?://##')\"\n    GIT_USER=\"${GIT_USERNAME:-x-access-token}\"\n    CLONE_URL=\"https://${GIT_USER}:${GIT_TOKEN}@${HOST_PATH}\"\n    echo \"[tasky] Cloning private repository...\"\n  else\n    echo \"[tasky] Cloning repository...\"\n  fi\n\n  if [ -z \"$(ls -A . 2>/dev/null | grep -v '^\\.')\" ]; then\n    if [ -n \"${GIT_BRANCH}\" ]; then\n      git clone --single-branch --branch \"${GIT_BRANCH}\" \"${CLONE_URL}\" .\n    else\n      git clone --depth 1 \"${CLONE_URL}\" .\n    fi\n  else\n    echo \"[tasky] Directory not empty — skipping clone.\"\n  fi\nfi\n\nnpm install\n\nif [ -z \"${AUTH_SECRET}\" ]; then\n  echo \"[tasky] WARNING: AUTH_SECRET not set — using temporary build secret. Set AUTH_SECRET in Variables before starting.\"\n  export AUTH_SECRET=\"temporary-build-secret-change-in-panel\"\nfi\n\nexport DATABASE_URL=\"${DATABASE_URL:-file:./prisma/tasky.db}\"\nexport BIND_HOST=\"0.0.0.0\"\n\necho \"[tasky] Building production app (this may take a few minutes)...\"\nnpm run build\n\necho \"[tasky] Setting up database...\"\nnpx prisma db push --skip-generate\n\necho \"[tasky] Install complete. Set AUTH_URL to your public URL (with port {{SERVER_PORT}}) then Start the server.\"\n"
+    }
+  },
+  "variables": [
+    {
+      "name": "Deploy method",
+      "description": "1 = upload files via SFTP (private, no git). 0 = clone from git on install.",
+      "env_variable": "USER_UPLOAD",
+      "default_value": "1",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|boolean"
+    },
+    {
+      "name": "Git repository URL",
+      "description": "HTTPS git URL (works for private repos if GIT_TOKEN is set). Example: https://github.com/you/tasky",
+      "env_variable": "GIT_ADDRESS",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string"
+    },
+    {
+      "name": "Git branch",
+      "description": "Branch to clone (optional). Leave empty for default branch.",
+      "env_variable": "GIT_BRANCH",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string"
+    },
+    {
+      "name": "Git username",
+      "description": "For private GitHub use x-access-token. For GitLab use your username. Only needed with GIT_TOKEN.",
+      "env_variable": "GIT_USERNAME",
+      "default_value": "x-access-token",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string"
+    },
+    {
+      "name": "Git access token",
+      "description": "Personal Access Token for private repos (repo read scope). Leave empty for SFTP upload mode.",
+      "env_variable": "GIT_TOKEN",
+      "default_value": "",
+      "user_viewable": false,
+      "user_editable": true,
+      "rules": "nullable|string"
+    },
+    {
+      "name": "Database path",
+      "description": "SQLite file path (relative to prisma/). Default is fine for most installs.",
+      "env_variable": "DATABASE_URL",
+      "default_value": "file:./prisma/tasky.db",
+      "user_viewable": true,
+      "user_editable": false,
+      "rules": "required|string"
+    },
+    {
+      "name": "Auth secret",
+      "description": "Random secret for sessions. Generate with: openssl rand -base64 32",
+      "env_variable": "AUTH_SECRET",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|min:16"
+    },
+    {
+      "name": "Public app URL (AUTH_URL)",
+      "description": "How users reach your site. Use server IP/domain AND Pterodactyl port. Example: http://123.45.67.89:25565",
+      "env_variable": "AUTH_URL",
+      "default_value": "http://127.0.0.1:3000",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string"
+    },
+    {
+      "name": "Trust host (AUTH_TRUST_HOST)",
+      "description": "Leave as true for Pterodactyl / reverse proxies.",
+      "env_variable": "AUTH_TRUST_HOST",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string"
+    },
+    {
+      "name": "Discord client ID",
+      "description": "From Discord Developer Portal → your app → OAuth2.",
+      "env_variable": "AUTH_DISCORD_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string"
+    },
+    {
+      "name": "Discord client secret",
+      "description": "From Discord Developer Portal → your app → OAuth2.",
+      "env_variable": "AUTH_DISCORD_SECRET",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string"
+    },
+    {
+      "name": "Admin Discord user IDs",
+      "description": "Comma-separated Discord user IDs that get admin access.",
+      "env_variable": "ADMIN_DISCORD_IDS",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string"
+    }
+  ]
+}
