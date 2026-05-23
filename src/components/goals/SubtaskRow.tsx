@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useDismissOnPointerDownOutside } from "@/lib/useDismissOnPointerDownOutside";
 import { NeoCheckbox } from "@/components/neo/NeoCheckbox";
 import { NeoInput } from "@/components/neo/NeoInput";
 import { NeoButton } from "@/components/neo/NeoButton";
 import { NeoIconButton } from "@/components/neo/NeoIconButton";
+import { NeoConfirmDialog } from "@/components/neo/NeoConfirmDialog";
 import { IconArchive, IconEdit } from "@/components/neo/icons";
 import { archiveSubtask, toggleSubtask, updateSubtaskTitle } from "@/lib/actions/goals";
 import { TASK_TEXT_MAX_LENGTH, clampTaskText } from "@/lib/task-text";
@@ -20,6 +22,7 @@ type SubtaskRowProps = {
   ) => void;
   onArchive?: (subtaskId: string) => void;
   onTitleUpdate?: (subtaskId: string, title: string) => void;
+  onEditingChange?: (editing: boolean) => void;
 };
 
 export function SubtaskRow({
@@ -28,13 +31,27 @@ export function SubtaskRow({
   onToggle,
   onArchive,
   onTitleUpdate,
+  onEditingChange,
 }: SubtaskRowProps) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(subtask.title);
   const [completed, setCompleted] = useState(subtask.completed);
   const [celebrating, setCelebrating] = useState(false);
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const checkboxRef = useRef<HTMLButtonElement>(null);
+  const editFormRef = useRef<HTMLFormElement>(null);
+
+  const cancelEdit = useCallback(() => {
+    setTitle(subtask.title);
+    setEditing(false);
+  }, [subtask.title]);
+
+  useDismissOnPointerDownOutside(editFormRef, cancelEdit, { enabled: editing });
+
+  useEffect(() => {
+    onEditingChange?.(editing);
+  }, [editing, onEditingChange]);
 
   useEffect(() => {
     setCompleted(subtask.completed);
@@ -50,6 +67,7 @@ export function SubtaskRow({
   if (editing) {
     return (
       <form
+        ref={editFormRef}
         className={`flex flex-col gap-2 px-3 py-3 ${rowClass} ${bgClass}`}
         onSubmit={(e) => {
           e.preventDefault();
@@ -74,14 +92,7 @@ export function SubtaskRow({
           <NeoButton type="submit" disabled={pending}>
             Save
           </NeoButton>
-          <NeoButton
-            type="button"
-            variant="secondary"
-            onClick={() => {
-              setTitle(subtask.title);
-              setEditing(false);
-            }}
-          >
+          <NeoButton type="button" variant="secondary" onClick={cancelEdit}>
             Cancel
           </NeoButton>
         </div>
@@ -140,16 +151,30 @@ export function SubtaskRow({
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
-            if (!confirm("Archive this subtask?")) return;
-            startTransition(async () => {
-              const result = await archiveSubtask(subtask.id);
-              if (result && !("error" in result)) onArchive?.(subtask.id);
-            });
+            setArchiveConfirmOpen(true);
           }}
         >
           <IconArchive />
         </NeoIconButton>
       </div>
+      <NeoConfirmDialog
+        open={archiveConfirmOpen}
+        title="Archive this subtask?"
+        message="You can't undo this from the app."
+        confirmLabel="Archive"
+        confirmVariant="danger"
+        pending={pending}
+        onCancel={() => setArchiveConfirmOpen(false)}
+        onConfirm={() => {
+          startTransition(async () => {
+            const result = await archiveSubtask(subtask.id);
+            if (result && !("error" in result)) {
+              setArchiveConfirmOpen(false);
+              onArchive?.(subtask.id);
+            }
+          });
+        }}
+      />
     </TaskCardCelebration>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useDismissOnPointerDownOutside } from "@/lib/useDismissOnPointerDownOutside";
 import { NeoCheckbox } from "@/components/neo/NeoCheckbox";
 import { NeoInput } from "@/components/neo/NeoInput";
 import { NeoButton } from "@/components/neo/NeoButton";
@@ -36,6 +37,14 @@ export function DailyTaskRow({
   const [celebrating, setCelebrating] = useState(false);
   const [pending, startTransition] = useTransition();
   const checkboxRef = useRef<HTMLButtonElement>(null);
+  const editFormRef = useRef<HTMLFormElement>(null);
+
+  const cancelEdit = useCallback(() => {
+    setTitle(task.title);
+    setEditing(false);
+  }, [task.title]);
+
+  useDismissOnPointerDownOutside(editFormRef, cancelEdit, { enabled: editing });
 
   useEffect(() => {
     setTask(initial);
@@ -53,6 +62,7 @@ export function DailyTaskRow({
         onDone={() => setCelebrating(false)}
       >
       <form
+        ref={editFormRef}
         className={`flex flex-col gap-2 px-3 py-3 ${rowClass} ${bgClass}`}
         onSubmit={(e) => {
           e.preventDefault();
@@ -78,15 +88,7 @@ export function DailyTaskRow({
           <NeoButton type="submit" disabled={pending}>
             Save
           </NeoButton>
-          <NeoButton
-            type="button"
-            variant="secondary"
-            disabled={pending}
-            onClick={() => {
-              setTitle(task.title);
-              setEditing(false);
-            }}
-          >
+          <NeoButton type="button" variant="secondary" disabled={pending} onClick={cancelEdit}>
             Cancel
           </NeoButton>
         </div>
@@ -169,11 +171,13 @@ export function DailyTaskRow({
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {
           e.stopPropagation();
+          e.preventDefault();
           const removed = task;
           onDelete?.(task.id);
+          if (task.id.startsWith("optimistic-")) return;
           startTransition(async () => {
             const result = await deleteDailyTask(task.id);
-            if (result && "error" in result) {
+            if (!result || "error" in result) {
               onRestore?.(removed);
             }
           });

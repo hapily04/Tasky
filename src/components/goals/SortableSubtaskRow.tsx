@@ -16,6 +16,7 @@ type SortableSubtaskRowProps = {
   ) => void;
   onArchive?: (subtaskId: string) => void;
   onTitleUpdate?: (subtaskId: string, title: string) => void;
+  onEditingChange?: (editing: boolean) => void;
 };
 
 export function SortableSubtaskRow({
@@ -25,6 +26,7 @@ export function SortableSubtaskRow({
   onToggle,
   onArchive,
   onTitleUpdate,
+  onEditingChange,
 }: SortableSubtaskRowProps) {
   const dragControls = useDragControls();
 
@@ -69,6 +71,7 @@ export function SortableSubtaskRow({
           onToggle={onToggle}
           onArchive={onArchive}
           onTitleUpdate={onTitleUpdate}
+          onEditingChange={onEditingChange}
         />
       </div>
     </Reorder.Item>

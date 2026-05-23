@@ -17,13 +17,22 @@ type TasksForTodayCardProps = {
 };
 
 function mergeTasks(prev: DailyTask[], incoming: DailyTask[]) {
-  if (prev.length !== incoming.length) return incoming;
-  const sameOrder = prev.every((t, i) => t.id === incoming[i]?.id);
-  if (!sameOrder) return incoming;
-  return prev.map((t) => {
-    const next = incoming.find((n) => n.id === t.id);
-    return next ?? t;
-  });
+  if (prev.length === incoming.length) {
+    const sameOrder = prev.every((t, i) => t.id === incoming[i]?.id);
+    if (!sameOrder) return incoming;
+    return prev.map((t) => {
+      const next = incoming.find((n) => n.id === t.id);
+      return next ?? t;
+    });
+  }
+
+  if (prev.length < incoming.length) {
+    if (prev.every((t) => incoming.some((n) => n.id === t.id))) {
+      return prev.map((t) => incoming.find((n) => n.id === t.id) ?? t);
+    }
+  }
+
+  return incoming;
 }
 
 export function TasksForTodayCard({
@@ -45,13 +54,21 @@ export function TasksForTodayCard({
   const [canReorder, setCanReorder] = useState(false);
   const orderRef = useRef(orderedTasks);
   const listBoundsRef = useRef<HTMLDivElement>(null);
+  const pendingDeleteIdsRef = useRef(new Set<string>());
 
   useEffect(() => {
     setCanReorder(true);
   }, []);
 
   useEffect(() => {
-    setOrderedTasks((prev) => mergeTasks(prev, initialTasks));
+    for (const id of pendingDeleteIdsRef.current) {
+      if (!initialTasks.some((t) => t.id === id)) {
+        pendingDeleteIdsRef.current.delete(id);
+      }
+    }
+
+    const incoming = initialTasks.filter((t) => !pendingDeleteIdsRef.current.has(t.id));
+    setOrderedTasks((prev) => mergeTasks(prev, incoming));
   }, [initialTasks]);
 
   useEffect(() => {
@@ -109,10 +126,12 @@ export function TasksForTodayCard({
   };
 
   const handleDelete = (id: string) => {
+    pendingDeleteIdsRef.current.add(id);
     updateOrderedTasks((list) => list.filter((t) => t.id !== id));
   };
 
   const handleRestore = (task: DailyTask) => {
+    pendingDeleteIdsRef.current.delete(task.id);
     updateOrderedTasks((list) => {
       const next = [...list, task];
       next.sort((a, b) => a.sortOrder - b.sortOrder);
