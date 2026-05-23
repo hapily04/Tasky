@@ -52,3 +52,6 @@ next-env.d.ts
 /data/*.db-journal
 /prisma/*.db
 /prisma/*.db-journal
+
+# deploy upload packs (pack-for-upload.bat)
+tasky-upload-*.zip
